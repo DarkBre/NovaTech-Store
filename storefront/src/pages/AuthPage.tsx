@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import type { AccountRole, AuthResult, User } from '../types'
+import type { AuthResult, User } from '../types'
 import { roleLabels } from '../utils/auth'
 
 type AuthPageProps = {
@@ -12,7 +12,6 @@ type AuthPageProps = {
     name: string,
     email: string,
     password: string,
-    role: AccountRole,
   ) => AuthResult | Promise<AuthResult>
 }
 
@@ -25,7 +24,6 @@ export function AuthPage({ user, onLogin, onLogout, onRegister }: AuthPageProps)
     name: user?.name ?? '',
     email: '',
     password: '',
-    role: 'customer' as AccountRole,
   })
   const redirectReason =
     typeof location.state === 'object' &&
@@ -43,7 +41,7 @@ export function AuthPage({ user, onLogin, onLogout, onRegister }: AuthPageProps)
       const result =
         mode === 'login'
           ? await onLogin(form.email, form.password)
-          : await onRegister(form.name, form.email, form.password, form.role)
+          : await onRegister(form.name, form.email, form.password)
 
       setStatus(result.message)
     } finally {
@@ -140,20 +138,7 @@ export function AuthPage({ user, onLogin, onLogout, onRegister }: AuthPageProps)
               placeholder="Tối thiểu 6 ký tự"
             />
           </label>
-          {mode === 'register' ? (
-            <label>
-              Phân quyền tài khoản
-              <select
-                value={form.role}
-                onChange={(event) =>
-                  setForm({ ...form, role: event.target.value as AccountRole })
-                }
-              >
-                <option value="customer">Khách hàng</option>
-                <option value="admin">Quản trị viên</option>
-              </select>
-            </label>
-          ) : null}
+          {mode === 'register' ? <p className="detail-copy">Tài khoản web chỉ đăng ký vai trò khách hàng.</p> : null}
           <button type="submit" disabled={loading}>
             {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>

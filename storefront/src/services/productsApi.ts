@@ -35,7 +35,11 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
 }
 
 export const fetchProducts = async (): Promise<Product[]> => {
-  const products = await parseResponse<Product[]>(await fetch(PRODUCTS_ENDPOINT))
+  const products = await parseResponse<Product[]>(
+    await fetch(PRODUCTS_ENDPOINT, {
+      credentials: 'include',
+    }),
+  )
   return products.map(normalizeProduct)
 }
 
@@ -43,6 +47,7 @@ export const createProduct = async (product: Omit<Product, 'id'>): Promise<Produ
   const created = await parseResponse<Product>(
     await fetch(PRODUCTS_ENDPOINT, {
       body: JSON.stringify(product),
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
     }),
@@ -55,6 +60,7 @@ export const updateProduct = async (product: Product): Promise<Product> => {
   const updated = await parseResponse<Product>(
     await fetch(`${PRODUCTS_ENDPOINT}?id=${product.id}`, {
       body: JSON.stringify(product),
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       method: 'PUT',
     }),
@@ -66,6 +72,7 @@ export const updateProduct = async (product: Product): Promise<Product> => {
 export const deleteProduct = async (productId: number): Promise<void> => {
   await parseResponse<{ ok: boolean }>(
     await fetch(`${PRODUCTS_ENDPOINT}?id=${productId}`, {
+      credentials: 'include',
       method: 'DELETE',
     }),
   )

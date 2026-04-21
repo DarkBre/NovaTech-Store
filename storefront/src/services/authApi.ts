@@ -1,4 +1,4 @@
-import type { AccountRole, User } from '../types'
+import type { User } from '../types'
 
 type AuthResponse = {
   message: string
@@ -30,7 +30,11 @@ const normalizeUser = (user: User): User => ({
 })
 
 export const fetchUsers = async (): Promise<User[]> => {
-  const users = await parseResponse<User[]>(await fetch(`${AUTH_ENDPOINT}?action=list`))
+  const users = await parseResponse<User[]>(
+    await fetch(`${AUTH_ENDPOINT}?action=list`, {
+      credentials: 'include',
+    }),
+  )
   return users.map(normalizeUser)
 }
 
@@ -38,6 +42,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
   const response = await parseResponse<AuthResponse>(
     await fetch(`${AUTH_ENDPOINT}?action=login`, {
       body: JSON.stringify({ email, password }),
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
     }),
@@ -53,11 +58,11 @@ export const register = async (
   name: string,
   email: string,
   password: string,
-  role: AccountRole,
 ): Promise<AuthResponse> => {
   const response = await parseResponse<AuthResponse>(
     await fetch(`${AUTH_ENDPOINT}?action=register`, {
-      body: JSON.stringify({ email, name, password, role }),
+      body: JSON.stringify({ email, name, password }),
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
     }),
@@ -67,4 +72,23 @@ export const register = async (
     ...response,
     user: normalizeUser(response.user),
   }
+}
+
+export const fetchCurrentUser = async (): Promise<User> => {
+  const response = await parseResponse<{ user: User }>(
+    await fetch(`${AUTH_ENDPOINT}?action=me`, {
+      credentials: 'include',
+    }),
+  )
+
+  return normalizeUser(response.user)
+}
+
+export const logout = async (): Promise<{ message: string }> => {
+  return parseResponse<{ message: string }>(
+    await fetch(`${AUTH_ENDPOINT}?action=logout`, {
+      credentials: 'include',
+      method: 'POST',
+    }),
+  )
 }

@@ -15,12 +15,20 @@ class AuthController
                 $this->index();
             }
 
+            if ($method === 'GET' && $action === 'me') {
+                $this->me();
+            }
+
             if ($method === 'POST' && $action === 'login') {
                 $this->login();
             }
 
             if ($method === 'POST' && $action === 'register') {
                 $this->register();
+            }
+
+            if ($method === 'POST' && $action === 'logout') {
+                $this->logout();
             }
 
             send_json(['message' => 'API tài khoản không hợp lệ.'], 404);
@@ -50,6 +58,10 @@ class AuthController
             send_json(['message' => 'Email hoặc mật khẩu không đúng.'], 401);
         }
 
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['role'] = (string) $user['role'];
+
         send_json([
             'message' => 'Đăng nhập thành công.',
             'user' => UserModel::publicUser($user),
@@ -62,7 +74,7 @@ class AuthController
         $name = trim((string) ($data['name'] ?? ''));
         $email = strtolower(trim((string) ($data['email'] ?? '')));
         $password = (string) ($data['password'] ?? '');
-        $role = $this->validRole((string) ($data['role'] ?? 'customer'));
+        $role = 'customer';
 
         if ($name === '' || $email === '' || $password === '') {
             send_json(['message' => 'Vui lòng nhập đầy đủ họ tên, email và mật khẩu.'], 400);
@@ -76,15 +88,60 @@ class AuthController
             send_json(['message' => 'Email này đã được đăng ký.'], 409);
         }
 
+        $createdUser = UserModel::create($name, $email, $password, $role);
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int) $createdUser['id'];
+        $_SESSION['role'] = (string) $createdUser['role'];
+
         send_json([
             'message' => 'Tạo tài khoản thành công.',
-            'user' => UserModel::create($name, $email, $password, $role),
+            'user' => $createdUser,
         ], 201);
     }
 
-    private function validRole(string $role): string
+    private function me(): void
     {
-        return in_array($role, ['customer', 'admin'], true) ? $role : 'customer';
+        $user = $this->sessionUser();
+        if (!$user) {
+            send_json(['message' => 'Bạn chưa đăng nhập.'], 401);
+        }
+
+        send_json(['user' => UserModel::publicUser($user)]);
+    }
+
+    private function logout(): void
+    {
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'] ?? '',
+                (bool) $params['secure'],
+                (bool) $params['httponly']
+            );
+        }
+
+        session_destroy();
+        send_json(['message' => 'Đăng xuất thành công.']);
+    }
+
+    private function sessionUser(): array|null
+    {
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $statement = db()->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+        $statement->execute(['id' => $userId]);
+        $user = $statement->fetch();
+
+        return $user ?: null;
     }
 
     private function passwordIsValid(string $password, string $storedPassword): bool
