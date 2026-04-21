@@ -10,8 +10,10 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { HomePage } from './pages/HomePage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 import {
+  fetchCurrentUser,
   fetchUsers,
   login as loginWithApi,
+  logout as logoutWithApi,
   register as registerWithApi,
 } from './services/authApi'
 import {
@@ -20,7 +22,7 @@ import {
   fetchProducts,
   updateProduct as updateProductOnApi,
 } from './services/productsApi'
-import type { AccountRole, AuthResult, CartItem, Category, Product, RegisteredUser, User } from './types'
+import type { AuthResult, CartItem, Category, Product, RegisteredUser, User } from './types'
 import { normalizeUser, roleLabels, seedAccounts } from './utils/auth'
 import { readSessionStorage, readStorage } from './utils/storage'
 
@@ -67,6 +69,12 @@ function App() {
         )
       })
       .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    fetchCurrentUser()
+      .then((currentUser) => setUser(currentUser))
+      .catch(() => setUser(null))
   }, [])
 
   useEffect(() => {
@@ -199,46 +207,16 @@ function App() {
         message: `${result.message} Quyền tài khoản: ${roleLabels[result.user.role]}.`,
       }
     } catch (error) {
-      const apiMessage = error instanceof Error ? error.message : ''
-      const localResult = legacyLoginUser(email, password)
-      return localResult.ok ? localResult : { ...localResult, message: apiMessage || localResult.message }
-    }
-  }
-
-  const legacyLoginUser = (email: string, password: string): AuthResult => {
-    const account = accounts.find((entry) => entry.email.toLowerCase() === email.toLowerCase())
-
-    if (!account || account.password !== password) {
       return {
         ok: false,
-        message: 'Email hoặc mật khẩu không đúng.',
+        message: error instanceof Error ? error.message : 'Đăng nhập thất bại.',
       }
     }
-
-    setUser({ name: account.name, email: account.email, role: account.role })
-    return {
-      ok: true,
-      message: `Đăng nhập bằng dữ liệu local với quyền ${roleLabels[account.role]}.`,
-    }
   }
 
-  const registerUser = (
-    name: string,
-    email: string,
-    password: string,
-    role: AccountRole,
-  ): Promise<AuthResult> => {
-    return registerUserWithApi(name, email, password, role)
-  }
-
-  const registerUserWithApi = async (
-    name: string,
-    email: string,
-    password: string,
-    role: AccountRole,
-  ): Promise<AuthResult> => {
+  const registerUser = async (name: string, email: string, password: string): Promise<AuthResult> => {
     try {
-      const result = await registerWithApi(name, email, password, role)
+      const result = await registerWithApi(name, email, password)
       setUser(result.user)
       setAccounts((current) => [
         ...current.filter((account) => account.email.toLowerCase() !== result.user.email.toLowerCase()),
@@ -250,61 +228,19 @@ function App() {
         message: `${result.message} Quyền tài khoản: ${roleLabels[result.user.role]}.`,
       }
     } catch (error) {
-      const apiMessage = error instanceof Error ? error.message : ''
-      const localResult = legacyRegisterUser(name, email, password, role)
-
-      return localResult.ok
-        ? {
-            ...localResult,
-            message: `${localResult.message} API chưa sẵn sàng nên tài khoản đang lưu tạm trong trình duyệt.`,
-          }
-        : {
-            ...localResult,
-            message: apiMessage || localResult.message,
-          }
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Đăng ký thất bại.',
+      }
     }
   }
 
-  const legacyRegisterUser = (
-    name: string,
-    email: string,
-    password: string,
-    role: AccountRole,
-  ): AuthResult => {
-    const normalizedEmail = email.trim().toLowerCase()
-    const exists = accounts.some((account) => account.email.toLowerCase() === normalizedEmail)
-
-    if (exists) {
-      return {
-        ok: false,
-        message: 'Email này đã được đăng ký.',
-      }
+  const logoutUser = async () => {
+    try {
+      await logoutWithApi()
+    } catch {
+      // clear local state even if API logout fails
     }
-
-    if (password.length < 6) {
-      return {
-        ok: false,
-        message: 'Mật khẩu cần có ít nhất 6 ký tự.',
-      }
-    }
-
-    const newAccount: RegisteredUser = {
-      name: name.trim() || 'Nova User',
-      email: normalizedEmail,
-      password,
-      role,
-    }
-
-    setAccounts((current) => [...current, newAccount])
-    setUser({ name: newAccount.name, email: newAccount.email, role: newAccount.role })
-
-    return {
-      ok: true,
-      message: `Tạo tài khoản thành công với quyền ${roleLabels[role]}.`,
-    }
-  }
-
-  const logoutUser = () => {
     setUser(null)
   }
 

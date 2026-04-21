@@ -5,6 +5,23 @@ const DB_HOST = '127.0.0.1';
 const DB_NAME = 'novatech_store';
 const DB_USER = 'root';
 const DB_PASS = '';
+const FRONTEND_ORIGIN = 'http://localhost:5173';
+
+function cors_origin(): string
+{
+    $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+    return $origin !== '' ? $origin : FRONTEND_ORIGIN;
+}
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'path' => '/',
+        'samesite' => 'Lax',
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    ]);
+    session_start();
+}
 
 function db(): PDO
 {
@@ -27,7 +44,9 @@ function send_json(mixed $data, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Origin: ' . cors_origin());
+    header('Access-Control-Allow-Credentials: true');
+    header('Vary: Origin');
     header('Access-Control-Allow-Headers: Content-Type');
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
