@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Header } from './components/Header'
 import { AdminPage } from './pages/AdminPage'
 import { AuthPage } from './pages/AuthPage'
+import { HomePage } from './pages/HomePage'
 import {
   fetchCurrentUser,
   fetchUsers,
@@ -10,7 +11,8 @@ import {
   logout as logoutWithApi,
   register as registerWithApi,
 } from './services/authApi'
-import type { AuthResult, User } from './types'
+import { fetchProducts } from './services/productApi'
+import type { AuthResult, Product, User } from './types'
 import { normalizeUser, roleLabels } from './utils/auth'
 import { readSessionStorage } from './utils/storage'
 
@@ -18,6 +20,7 @@ const readStoredUser = () => normalizeUser(readSessionStorage<User | null>('user
 
 function App() {
   const [accounts, setAccounts] = useState<User[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [user, setUser] = useState<User | null>(readStoredUser)
 
   useEffect(() => {
@@ -36,7 +39,16 @@ function App() {
 
     fetchUsers()
       .then(setAccounts)
-      .catch(() => undefined)
+      .catch(() => setAccounts([]))
+  }, [user])
+
+  useEffect(() => {
+    if (user?.role !== 'customer') {
+      setProducts([])
+      return
+    }
+
+    fetchProducts().then(setProducts)
   }, [user])
 
   useEffect(() => {
@@ -95,36 +107,45 @@ function App() {
     try {
       await logoutWithApi()
     } catch {
-      // Vẫn xóa trạng thái frontend nếu backend tạm thời không phản hồi.
+      // Vẫn đưa frontend về trạng thái đăng xuất nếu backend phản hồi chậm hoặc đang lỗi.
     }
     setUser(null)
   }
 
   return (
     <div className="app-shell">
-      <Header user={user} />
+      <Header onLogout={logoutUser} user={user} />
 
       <Routes>
         <Route
           path="/"
           element={
-            <AuthPage
-              user={user}
-              onLogin={loginUser}
-              onLogout={logoutUser}
-              onRegister={registerUser}
-            />
+            !user ? (
+              <Navigate
+                replace
+                to="/auth"
+                state={{ redirectReason: 'Vui lòng đăng nhập để xem trang chủ sản phẩm.' }}
+              />
+            ) : user.role === 'admin' ? (
+              <Navigate replace to="/admin" />
+            ) : (
+              <HomePage products={products} />
+            )
           }
         />
         <Route
           path="/auth"
           element={
-            <AuthPage
-              user={user}
-              onLogin={loginUser}
-              onLogout={logoutUser}
-              onRegister={registerUser}
-            />
+            user ? (
+              <Navigate replace to={user.role === 'admin' ? '/admin' : '/'} />
+            ) : (
+              <AuthPage
+                user={user}
+                onLogin={loginUser}
+                onLogout={logoutUser}
+                onRegister={registerUser}
+              />
+            )
           }
         />
         <Route
@@ -141,7 +162,7 @@ function App() {
             )
           }
         />
-        <Route path="*" element={<Navigate replace to="/auth" />} />
+        <Route path="*" element={<Navigate replace to={user?.role === 'admin' ? '/admin' : '/'} />} />
       </Routes>
     </div>
   )

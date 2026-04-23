@@ -1,35 +1,12 @@
 import type { User } from '../types'
+import { API_BASE, fetchApi, parseResponse } from './apiClient'
 
 type AuthResponse = {
   message: string
   user: User
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost/novatech-api'
 const AUTH_ENDPOINT = `${API_BASE}/auth.php`
-
-const fetchApi = async (input: RequestInfo | URL, init?: RequestInit) => {
-  try {
-    return await fetch(input, init)
-  } catch {
-    throw new Error('Không kết nối được backend. Hãy bật Apache/MySQL trong XAMPP và kiểm tra http://localhost/novatech-api/auth.php?action=list.')
-  }
-}
-
-const parseResponse = async <T>(response: Response): Promise<T> => {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const message =
-      payload && typeof payload === 'object' && 'message' in payload
-        ? String(payload.message)
-        : 'Không thể kết nối API tài khoản.'
-
-    throw new Error(message)
-  }
-
-  return payload as T
-}
 
 const normalizeUser = (user: User): User => ({
   name: user.name,
@@ -43,6 +20,7 @@ export const fetchUsers = async (): Promise<User[]> => {
       credentials: 'include',
     }),
   )
+
   return users.map(normalizeUser)
 }
 
